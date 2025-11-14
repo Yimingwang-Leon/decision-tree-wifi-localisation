@@ -32,7 +32,8 @@ class Regressor:
         self.cat_col = 'ocean_proximity'
 
         # Z-score 
-        self.num_mean = None 
+        self.num_median = None 
+        self.num_mean = None
         self.num_std = None 
         self.cat_fill = None 
 
@@ -63,7 +64,8 @@ class Regressor:
         # 1. Deal with NA
         if training:
             self.num_mean = X[self.num_cols].mean(axis=0)
-        X[self.num_cols] = X[self.num_cols].fillna(self.num_mean)
+            self.num_median = X[self.num_cols].median(axis=0)
+        X[self.num_cols] = X[self.num_cols].fillna(self.num_median)
 
         if training:
             self.cat_fill = X[self.cat_col].mode()[0]
@@ -179,24 +181,25 @@ def perform_hyperparameter_search():
 
     param_grid = {
         'learning_rate' : [1e-3, 5e-4, 1e-4],
-        'nb_epoch' : [500, 600, 1000, 1500],
+        'nb_epoch' : [300, 400, 500],
         'hidden' : [
             [64, 32],
             [128, 64],
-            [128, 64, 32]
+            [128, 64, 32],
+            [256, 128, 64]
         ]
     }
 
     best_params = {}
     best_rmse = float('inf')
-    kf = KFold(n_splits=5, shuffle=True, random_state=42)
+    kf = KFold(n_splits=3, shuffle=True, random_state=42)
 
     for lr in param_grid['learning_rate']:
         for epochs in param_grid['nb_epoch']:
             for layer in param_grid['hidden']:
 
                 num_hidden_layers = len(layer) 
-                current_activations = ['relu'] * num_hidden_layers + ['identity'] # 修正拼写
+                current_activations = ['relu'] * num_hidden_layers + ['identity'] 
 
                 fold_rmses = []
                 fold_r2s = []
@@ -265,7 +268,7 @@ def perform_hyperparameter_search():
     )
     final_regressor.fit(X_train_val, y_train_val)
     
-    # 最终测试集的评估
+    # Evaluation on final test
     y_true_test = y_test.to_numpy(dtype=float).reshape(-1, 1)
     y_pred_test = final_regressor.predict(X_test)
     
